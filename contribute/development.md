@@ -1,15 +1,6 @@
-+++
-title = "Developing on macOS"
-description = "Developing on macOS"
-type = "docs"
-[menu.docs]
-parent = "development"
-weight = 1
-+++
+# Develop Grafana
 
-# Developing on macOS
-
-This guide helps you get started developing Grafana on macOS.
+This guide helps you get started developing Grafana.
 
 ## Dependencies
 
@@ -19,6 +10,8 @@ Make sure you have the following dependencies installed before moving on to set 
 - [Go](https://golang.org/dl/)
 - [Node.js (Long Term Support)](https://nodejs.org)
 - [Yarn](https://yarnpkg.com)
+
+### macOS
 
 We recommend using [Homebrew](https://brew.sh/) for installing any missing dependencies:
 
@@ -69,8 +62,8 @@ By default, the web server will be served at `http://localhost:3000/`.
 Log in using the default credentials:
 
 | username | password |
-|----------|----------|
-| `admin`  | `admin` |
+| -------- | -------- |
+| `admin`  | `admin`  |
 
 When you log in for the first time, you'll be asked to change your password.
 

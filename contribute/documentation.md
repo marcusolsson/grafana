@@ -1,15 +1,8 @@
-+++
-title = "Documentation"
-description = "Contributing to documentation"
-type = "docs"
-[menu.docs]
-parent = "contribute"
-weight = 2
-+++
-
 # Contributing to documentation
 
-## How do I contribute?
+This documents guides you through the process of contributing to the Grafana documentation. Make sure you've read the guide for [Contribing to Grafana](README.md).
+
+## Your first contribution
 
 If you’re unsure about where to start, check out some of our [open docs issues](https://github.com/grafana/grafana/issues?q=is%3Aopen+is%3Aissue+label%3Atype%2Fdocs).
 
@@ -21,12 +14,10 @@ If you encounter any misspellings, or violations to the style guide, please let 
 
 On every page in the documentation there are two links:
 
-- __Edit this page__ takes you directly to the file on GitHub where you can contribute a fix.
-- __Request doc changes__ prepares an issue on GitHub with relevant information already filled in.
+- **Edit this page** takes you directly to the file on GitHub where you can contribute a fix.
+- **Request doc changes** prepares an issue on GitHub with relevant information already filled in.
 
 ## Community
-
-If you have questions on a specific issue, post a comment to ask for clarification, or to give feedback.
 
 For general discussions on documentation, you’re welcome to join the `#docs` channel on our [public Grafana Slack](http://slack.raintank.io) team.
 
