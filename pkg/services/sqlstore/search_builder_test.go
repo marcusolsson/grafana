@@ -1,35 +1,42 @@
 package sqlstore
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/grafana/grafana/pkg/models"
 	m "github.com/grafana/grafana/pkg/models"
-	. "github.com/smartystreets/goconvey/convey"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestSearchBuilder(t *testing.T) {
-	Convey("Testing building a search", t, func() {
-		signedInUser := &m.SignedInUser{
-			OrgId:  1,
-			UserId: 1,
-		}
+func TestSearchBuilder_TagFilter(t *testing.T) {
+	signedInUser := &models.SignedInUser{
+		OrgId:  1,
+		UserId: 1,
+	}
 
-		sb := NewSearchBuilder(signedInUser, 1000, 0, m.PERMISSION_VIEW)
+	sb := NewSearchBuilder(signedInUser, 1000, 0, m.PERMISSION_VIEW)
 
-		Convey("When building a normal search", func() {
-			sql, params := sb.IsStarred().WithTitle("test").ToSql()
-			So(sql, ShouldStartWith, "SELECT")
-			So(sql, ShouldContainSubstring, "INNER JOIN dashboard on ids.id = dashboard.id")
-			So(sql, ShouldContainSubstring, "ORDER BY dashboard.title ASC")
-			So(len(params), ShouldBeGreaterThan, 0)
-		})
+	sql, params := sb.WithTags([]string{"tag1", "tag2"}).ToSql()
 
-		Convey("When building a search with tag filter", func() {
-			sql, params := sb.WithTags([]string{"tag1", "tag2"}).ToSql()
-			So(sql, ShouldStartWith, "SELECT")
-			So(sql, ShouldContainSubstring, "LEFT OUTER JOIN dashboard_tag")
-			So(sql, ShouldContainSubstring, "ORDER BY dashboard.title ASC")
-			So(len(params), ShouldBeGreaterThan, 0)
-		})
-	})
+	assert.True(t, strings.HasPrefix(sql, "SELECT"))
+	assert.True(t, strings.Contains(sql, "LEFT OUTER JOIN dashboard_tag"))
+	assert.True(t, strings.Contains(sql, "ORDER BY dashboard.title ASC"))
+	assert.Greater(t, len(params), 0)
+}
+
+func TestSearchBuilder_Normal(t *testing.T) {
+	signedInUser := &models.SignedInUser{
+		OrgId:  1,
+		UserId: 1,
+	}
+
+	sb := NewSearchBuilder(signedInUser, 1000, 0, m.PERMISSION_VIEW)
+
+	sql, params := sb.IsStarred().WithTitle("test").ToSql()
+
+	assert.True(t, strings.HasPrefix(sql, "SELECT"))
+	assert.True(t, strings.Contains(sql, "INNER JOIN dashboard on ids.id = dashboard.id"))
+	assert.True(t, strings.Contains(sql, "ORDER BY dashboard.title ASC"))
+	assert.Greater(t, len(params), 0)
 }
