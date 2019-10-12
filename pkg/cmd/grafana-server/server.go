@@ -41,20 +41,7 @@ import (
 	"github.com/grafana/grafana/pkg/setting"
 )
 
-func NewGrafanaServer() *GrafanaServerImpl {
-	rootCtx, shutdownFn := context.WithCancel(context.Background())
-	childRoutines, childCtx := errgroup.WithContext(rootCtx)
-
-	return &GrafanaServerImpl{
-		context:       childCtx,
-		shutdownFn:    shutdownFn,
-		childRoutines: childRoutines,
-		log:           log.New("server"),
-		cfg:           setting.NewCfg(),
-	}
-}
-
-type GrafanaServerImpl struct {
+type Server struct {
 	context            context.Context
 	shutdownFn         context.CancelFunc
 	childRoutines      *errgroup.Group
@@ -63,24 +50,46 @@ type GrafanaServerImpl struct {
 	shutdownReason     string
 	shutdownInProgress bool
 
+	configFile string
+	homePath   string
+	pidFile    string
+
 	RouteRegister routing.RouteRegister `inject:""`
 	HttpServer    *api.HTTPServer       `inject:""`
 }
 
-func (g *GrafanaServerImpl) Run() error {
+func NewServer(configFile, homePath, pidFile string) *Server {
+	rootCtx, shutdownFn := context.WithCancel(context.Background())
+	childRoutines, childCtx := errgroup.WithContext(rootCtx)
+
+	return &Server{
+		context:       childCtx,
+		shutdownFn:    shutdownFn,
+		childRoutines: childRoutines,
+		log:           log.New("server"),
+		cfg:           setting.NewCfg(),
+
+		configFile: configFile,
+		homePath:   homePath,
+		pidFile:    pidFile,
+	}
+}
+
+func (s *Server) Run() error {
 	var err error
-	g.loadConfiguration()
-	g.writePIDFile()
+	s.loadConfiguration()
+	s.writePIDFile()
 
 	login.Init()
 	social.NewOAuthService()
 
 	serviceGraph := inject.Graph{}
+
 	err = serviceGraph.Provide(&inject.Object{Value: bus.GetBus()})
 	if err != nil {
 		return fmt.Errorf("Failed to provide object to the graph: %v", err)
 	}
-	err = serviceGraph.Provide(&inject.Object{Value: g.cfg})
+	err = serviceGraph.Provide(&inject.Object{Value: s.cfg})
 	if err != nil {
 		return fmt.Errorf("Failed to provide object to the graph: %v", err)
 	}
@@ -104,7 +113,7 @@ func (g *GrafanaServerImpl) Run() error {
 		}
 	}
 
-	err = serviceGraph.Provide(&inject.Object{Value: g})
+	err = serviceGraph.Provide(&inject.Object{Value: s})
 	if err != nil {
 		return fmt.Errorf("Failed to provide object to the graph: %v", err)
 	}
@@ -120,7 +129,7 @@ func (g *GrafanaServerImpl) Run() error {
 			continue
 		}
 
-		g.log.Info("Initializing " + service.Name)
+		s.log.Info("Initializing " + service.Name)
 
 		if err := service.Instance.Init(); err != nil {
 			return fmt.Errorf("Service init failed: %v", err)
@@ -140,38 +149,38 @@ func (g *GrafanaServerImpl) Run() error {
 			continue
 		}
 
-		g.childRoutines.Go(func() error {
+		s.childRoutines.Go(func() error {
 			// Skip starting new service when shutting down
 			// Can happen when service stop/return during startup
-			if g.shutdownInProgress {
+			if s.shutdownInProgress {
 				return nil
 			}
 
-			err := service.Run(g.context)
+			err := service.Run(s.context)
 
 			// If error is not canceled then the service crashed
 			if err != context.Canceled && err != nil {
-				g.log.Error("Stopped "+descriptor.Name, "reason", err)
+				s.log.Error("Stopped "+descriptor.Name, "reason", err)
 			} else {
-				g.log.Info("Stopped "+descriptor.Name, "reason", err)
+				s.log.Info("Stopped "+descriptor.Name, "reason", err)
 			}
 
 			// Mark that we are in shutdown mode
 			// So more services are not started
-			g.shutdownInProgress = true
+			s.shutdownInProgress = true
 			return err
 		})
 	}
 
 	sendSystemdNotification("READY=1")
 
-	return g.childRoutines.Wait()
+	return s.childRoutines.Wait()
 }
 
-func (g *GrafanaServerImpl) loadConfiguration() {
-	err := g.cfg.Load(&setting.CommandLineArgs{
-		Config:   *configFile,
-		HomePath: *homePath,
+func (s *Server) loadConfiguration() {
+	err := s.cfg.Load(&setting.CommandLineArgs{
+		Config:   s.configFile,
+		HomePath: s.homePath,
 		Args:     flag.Args(),
 	})
 
@@ -180,55 +189,55 @@ func (g *GrafanaServerImpl) loadConfiguration() {
 		os.Exit(1)
 	}
 
-	g.log.Info("Starting "+setting.ApplicationName, "version", version, "commit", commit, "branch", buildBranch, "compiled", time.Unix(setting.BuildStamp, 0))
-	g.cfg.LogConfigSources()
+	s.log.Info("Starting "+setting.ApplicationName, "version", version, "commit", commit, "branch", buildBranch, "compiled", time.Unix(setting.BuildStamp, 0))
+	s.cfg.LogConfigSources()
 }
 
-func (g *GrafanaServerImpl) Shutdown(reason string) {
-	g.log.Info("Shutdown started", "reason", reason)
-	g.shutdownReason = reason
-	g.shutdownInProgress = true
+func (s *Server) Shutdown(reason string) {
+	s.log.Info("Shutdown started", "reason", reason)
+	s.shutdownReason = reason
+	s.shutdownInProgress = true
 
 	// call cancel func on root context
-	g.shutdownFn()
+	s.shutdownFn()
 
 	// wait for child routines
-	g.childRoutines.Wait()
+	s.childRoutines.Wait()
 }
 
-func (g *GrafanaServerImpl) Exit(reason error) int {
+func (s *Server) Exit(reason error) int {
 	// default exit code is 1
 	code := 1
 
-	if reason == context.Canceled && g.shutdownReason != "" {
-		reason = fmt.Errorf(g.shutdownReason)
+	if reason == context.Canceled && s.shutdownReason != "" {
+		reason = fmt.Errorf(s.shutdownReason)
 		code = 0
 	}
 
-	g.log.Error("Server shutdown", "reason", reason)
+	s.log.Error("Server shutdown", "reason", reason)
 	return code
 }
 
-func (g *GrafanaServerImpl) writePIDFile() {
-	if *pidFile == "" {
+func (s *Server) writePIDFile() {
+	if s.pidFile == "" {
 		return
 	}
 
 	// Ensure the required directory structure exists.
-	err := os.MkdirAll(filepath.Dir(*pidFile), 0700)
+	err := os.MkdirAll(filepath.Dir(s.pidFile), 0700)
 	if err != nil {
-		g.log.Error("Failed to verify pid directory", "error", err)
+		s.log.Error("Failed to verify pid directory", "error", err)
 		os.Exit(1)
 	}
 
 	// Retrieve the PID and write it.
 	pid := strconv.Itoa(os.Getpid())
-	if err := ioutil.WriteFile(*pidFile, []byte(pid), 0644); err != nil {
-		g.log.Error("Failed to write pidfile", "error", err)
+	if err := ioutil.WriteFile(s.pidFile, []byte(pid), 0644); err != nil {
+		s.log.Error("Failed to write pidfile", "error", err)
 		os.Exit(1)
 	}
 
-	g.log.Info("Writing PID file", "path", *pidFile, "pid", pid)
+	s.log.Info("Writing PID file", "path", s.pidFile, "pid", pid)
 }
 
 func sendSystemdNotification(state string) error {
@@ -244,14 +253,12 @@ func sendSystemdNotification(state string) error {
 	}
 
 	conn, err := net.DialUnix(socketAddr.Net, nil, socketAddr)
-
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
 
 	_, err = conn.Write([]byte(state))
-
-	conn.Close()
 
 	return err
 }
