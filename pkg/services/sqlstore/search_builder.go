@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/grafana/grafana/pkg/models"
+	"github.com/grafana/grafana/pkg/services/sqlstore/migrator"
 )
 
 // SearchBuilder is a builder/object mother that builds a dashboard search query
@@ -22,7 +23,7 @@ type SearchBuilder struct {
 	permission          models.PermissionType
 }
 
-func NewSearchBuilder(signedInUser *models.SignedInUser, limit int64, page int64, permission models.PermissionType) *SearchBuilder {
+func NewSearchBuilder(signedInUser *models.SignedInUser, limit int64, page int64, permission models.PermissionType, dialect migrator.Dialect) *SearchBuilder {
 	// Default to page 1
 	if page < 1 {
 		page = 1
@@ -38,6 +39,9 @@ func NewSearchBuilder(signedInUser *models.SignedInUser, limit int64, page int64
 		limit:        limit,
 		page:         page,
 		permission:   permission,
+		SqlBuilder: SqlBuilder{
+			Dialect: dialect,
+		},
 	}
 
 	return searchBuilder
@@ -101,7 +105,7 @@ func (sb *SearchBuilder) ToSql() (string, []interface{}) {
 	}
 
 	sb.sql.WriteString(`
-		ORDER BY dashboard.id ` + dialect.LimitOffset(sb.limit, (sb.page-1)*sb.limit) + `) as ids
+		ORDER BY dashboard.id ` + sb.Dialect.LimitOffset(sb.limit, (sb.page-1)*sb.limit) + `) as ids
 		INNER JOIN dashboard on ids.id = dashboard.id
 	`)
 
@@ -184,16 +188,16 @@ func (sb *SearchBuilder) buildSearchWhereClause() {
 	sb.writeDashboardPermissionFilter(sb.signedInUser, sb.permission)
 
 	if len(sb.whereTitle) > 0 {
-		sb.sql.WriteString(" AND dashboard.title " + dialect.LikeStr() + " ?")
+		sb.sql.WriteString(" AND dashboard.title " + sb.Dialect.LikeStr() + " ?")
 		sb.params = append(sb.params, "%"+sb.whereTitle+"%")
 	}
 
 	if sb.whereTypeFolder {
-		sb.sql.WriteString(" AND dashboard.is_folder = " + dialect.BooleanStr(true))
+		sb.sql.WriteString(" AND dashboard.is_folder = " + sb.Dialect.BooleanStr(true))
 	}
 
 	if sb.whereTypeDash {
-		sb.sql.WriteString(" AND dashboard.is_folder = " + dialect.BooleanStr(false))
+		sb.sql.WriteString(" AND dashboard.is_folder = " + sb.Dialect.BooleanStr(false))
 	}
 
 	if len(sb.whereFolderIds) > 0 {

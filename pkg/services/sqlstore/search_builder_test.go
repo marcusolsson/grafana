@@ -14,7 +14,7 @@ func TestSearchBuilder_TagFilter(t *testing.T) {
 		UserId: 1,
 	}
 
-	sb := NewSearchBuilder(signedInUser, 1000, 0, models.PERMISSION_VIEW)
+	sb := NewSearchBuilder(signedInUser, 1000, 0, models.PERMISSION_VIEW, dialect)
 
 	sql, params := sb.WithTags([]string{"tag1", "tag2"}).ToSql()
 
@@ -30,7 +30,7 @@ func TestSearchBuilder_Normal(t *testing.T) {
 		UserId: 1,
 	}
 
-	sb := NewSearchBuilder(signedInUser, 1000, 0, models.PERMISSION_VIEW)
+	sb := NewSearchBuilder(signedInUser, 1000, 0, models.PERMISSION_VIEW, dialect)
 
 	sql, params := sb.IsStarred().WithTitle("test").ToSql()
 

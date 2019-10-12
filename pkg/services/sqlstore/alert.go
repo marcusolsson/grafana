@@ -72,7 +72,7 @@ func deleteAlertByIdInternal(alertId int64, reason string, sess *DBSession) erro
 }
 
 func HandleAlertsQuery(query *m.GetAlertsQuery) error {
-	builder := SqlBuilder{}
+	builder := SqlBuilder{Dialect: dialect}
 
 	builder.Write(`SELECT
 		alert.id,

@@ -5,11 +5,14 @@ import (
 	"strings"
 
 	"github.com/grafana/grafana/pkg/models"
+	"github.com/grafana/grafana/pkg/services/sqlstore/migrator"
 )
 
 type SqlBuilder struct {
 	sql    bytes.Buffer
 	params []interface{}
+
+	Dialect migrator.Dialect
 }
 
 func (sb *SqlBuilder) Write(sql string, params ...interface{}) {
@@ -40,7 +43,7 @@ func (sb *SqlBuilder) writeDashboardPermissionFilter(user *models.SignedInUser, 
 		okRoles = append(okRoles, models.ROLE_VIEWER)
 	}
 
-	falseStr := dialect.BooleanStr(false)
+	falseStr := sb.Dialect.BooleanStr(false)
 
 	sb.sql.WriteString(` AND
 	(

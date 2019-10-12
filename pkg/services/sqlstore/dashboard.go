@@ -198,7 +198,7 @@ type DashboardSearchProjection struct {
 }
 
 func findDashboards(query *search.FindPersistedDashboardsQuery) ([]DashboardSearchProjection, error) {
-	sb := NewSearchBuilder(query.SignedInUser, query.Limit, query.Page, query.Permission).
+	sb := NewSearchBuilder(query.SignedInUser, query.Limit, query.Page, query.Permission, dialect).
 		WithTags(query.Tags).
 		WithDashboardIdsIn(query.DashboardIds)
 
@@ -638,7 +638,7 @@ func HasEditPermissionInFolders(query *models.HasEditPermissionInFoldersQuery) e
 		return nil
 	}
 
-	builder := &SqlBuilder{}
+	builder := &SqlBuilder{Dialect: dialect}
 	builder.Write("SELECT COUNT(dashboard.id) AS count FROM dashboard WHERE dashboard.org_id = ? AND dashboard.is_folder = ?", query.SignedInUser.OrgId, dialect.BooleanStr(true))
 	builder.writeDashboardPermissionFilter(query.SignedInUser, models.PERMISSION_EDIT)
 
@@ -662,7 +662,7 @@ func HasAdminPermissionInFolders(query *models.HasAdminPermissionInFoldersQuery)
 		return nil
 	}
 
-	builder := &SqlBuilder{}
+	builder := &SqlBuilder{Dialect: dialect}
 	builder.Write("SELECT COUNT(dashboard.id) AS count FROM dashboard WHERE dashboard.org_id = ? AND dashboard.is_folder = ?", query.SignedInUser.OrgId, dialect.BooleanStr(true))
 	builder.writeDashboardPermissionFilter(query.SignedInUser, models.PERMISSION_ADMIN)
 

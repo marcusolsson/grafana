@@ -41,7 +41,7 @@ func GetDataSourceAccessStats(query *m.GetDataSourceAccessStatsQuery) error {
 }
 
 func GetSystemStats(query *m.GetSystemStatsQuery) error {
-	sb := &SqlBuilder{}
+	sb := &SqlBuilder{Dialect: dialect}
 	sb.Write("SELECT ")
 	sb.Write(`(SELECT COUNT(*) FROM ` + dialect.Quote("user") + `) AS users,`)
 	sb.Write(`(SELECT COUNT(*) FROM ` + dialect.Quote("org") + `) AS orgs,`)

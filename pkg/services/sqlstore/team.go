@@ -395,7 +395,7 @@ func GetTeamMembers(query *models.GetTeamMembersQuery) error {
 }
 
 func IsAdminOfTeams(query *models.IsAdminOfTeamsQuery) error {
-	builder := &SqlBuilder{}
+	builder := &SqlBuilder{Dialect: dialect}
 	builder.Write("SELECT COUNT(team.id) AS count FROM team INNER JOIN team_member ON team_member.team_id = team.id WHERE team.org_id = ? AND team_member.user_id = ? AND team_member.permission = ?", query.SignedInUser.OrgId, query.SignedInUser.UserId, models.PERMISSION_ADMIN)
 
 	type teamCount struct {
