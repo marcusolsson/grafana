@@ -76,54 +76,19 @@ func NewServer(configFile, homePath, pidFile string) *Server {
 }
 
 func (s *Server) Run() error {
-	var err error
 	s.loadConfiguration()
 	s.writePIDFile()
 
 	login.Init()
 	social.NewOAuthService()
 
-	serviceGraph := inject.Graph{}
-
-	err = serviceGraph.Provide(&inject.Object{Value: bus.GetBus()})
-	if err != nil {
-		return fmt.Errorf("Failed to provide object to the graph: %v", err)
-	}
-	err = serviceGraph.Provide(&inject.Object{Value: s.cfg})
-	if err != nil {
-		return fmt.Errorf("Failed to provide object to the graph: %v", err)
-	}
-	err = serviceGraph.Provide(&inject.Object{Value: routing.NewRouteRegister(middleware.RequestMetrics, middleware.RequestTracing)})
-	if err != nil {
-		return fmt.Errorf("Failed to provide object to the graph: %v", err)
-	}
-	err = serviceGraph.Provide(&inject.Object{Value: localcache.New(5*time.Minute, 10*time.Minute)})
-	if err != nil {
-		return fmt.Errorf("Failed to provide object to the graph: %v", err)
-	}
-
-	// self registered services
 	services := registry.GetServices()
 
-	// Add all services to dependency graph
-	for _, service := range services {
-		err = serviceGraph.Provide(&inject.Object{Value: service.Instance})
-		if err != nil {
-			return fmt.Errorf("Failed to provide object to the graph: %v", err)
-		}
+	if err := s.buildServiceGraph(services); err != nil {
+		return err
 	}
 
-	err = serviceGraph.Provide(&inject.Object{Value: s})
-	if err != nil {
-		return fmt.Errorf("Failed to provide object to the graph: %v", err)
-	}
-
-	// Inject dependencies to services
-	if err := serviceGraph.Populate(); err != nil {
-		return fmt.Errorf("Failed to populate service dependency: %v", err)
-	}
-
-	// Init & start services
+	// Initialize and start services.
 	for _, service := range services {
 		if registry.IsDisabled(service.Instance) {
 			continue
@@ -136,12 +101,12 @@ func (s *Server) Run() error {
 		}
 	}
 
-	// Start background services
-	for _, srv := range services {
-		// variable needed for accessing loop variable in function callback
-		descriptor := srv
+	// Start background services.
+	for _, svc := range services {
+		// Variable needed for accessing loop variable in function callback.
+		descriptor := svc
 
-		service, ok := srv.Instance.(registry.BackgroundService)
+		service, ok := svc.Instance.(registry.BackgroundService)
 		if !ok {
 			continue
 		}
@@ -178,6 +143,48 @@ func (s *Server) Run() error {
 	return s.childRoutines.Wait()
 }
 
+func (s *Server) buildServiceGraph(services []*registry.Descriptor) error {
+	var err error
+	g := inject.Graph{}
+
+	err = g.Provide(&inject.Object{Value: bus.GetBus()})
+	if err != nil {
+		return fmt.Errorf("Failed to provide object to the graph: %v", err)
+	}
+	err = g.Provide(&inject.Object{Value: s.cfg})
+	if err != nil {
+		return fmt.Errorf("Failed to provide object to the graph: %v", err)
+	}
+	err = g.Provide(&inject.Object{Value: routing.NewRouteRegister(middleware.RequestMetrics, middleware.RequestTracing)})
+	if err != nil {
+		return fmt.Errorf("Failed to provide object to the graph: %v", err)
+	}
+	err = g.Provide(&inject.Object{Value: localcache.New(5*time.Minute, 10*time.Minute)})
+	if err != nil {
+		return fmt.Errorf("Failed to provide object to the graph: %v", err)
+	}
+
+	// Add all services to dependency graph
+	for _, service := range services {
+		err = g.Provide(&inject.Object{Value: service.Instance})
+		if err != nil {
+			return fmt.Errorf("Failed to provide object to the graph: %v", err)
+		}
+	}
+
+	err = g.Provide(&inject.Object{Value: s})
+	if err != nil {
+		return fmt.Errorf("Failed to provide object to the graph: %v", err)
+	}
+
+	// Inject dependencies to services
+	if err := g.Populate(); err != nil {
+		return fmt.Errorf("Failed to populate service dependency: %v", err)
+	}
+
+	return nil
+}
+
 func (s *Server) loadConfiguration() {
 	err := s.cfg.Load(&setting.CommandLineArgs{
 		Config:   s.configFile,
@@ -210,7 +217,6 @@ func (s *Server) Shutdown(reason string) error {
 	// call cancel func on root context
 	s.shutdownFn()
 
-	// wait for child routines
 	return s.childRoutines.Wait()
 }
 
