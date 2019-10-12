@@ -140,6 +140,7 @@ func (s *Server) Run() error {
 	for _, srv := range services {
 		// variable needed for accessing loop variable in function callback
 		descriptor := srv
+
 		service, ok := srv.Instance.(registry.BackgroundService)
 		if !ok {
 			continue
@@ -189,12 +190,20 @@ func (s *Server) loadConfiguration() {
 		os.Exit(1)
 	}
 
-	s.log.Info("Starting "+setting.ApplicationName, "version", version, "commit", commit, "branch", buildBranch, "compiled", time.Unix(setting.BuildStamp, 0))
+	s.log.Info(
+		"Starting "+setting.ApplicationName,
+		"version", version,
+		"commit", commit,
+		"branch", buildBranch,
+		"compiled", time.Unix(setting.BuildStamp, 0),
+	)
+
 	s.cfg.LogConfigSources()
 }
 
-func (s *Server) Shutdown(reason string) {
+func (s *Server) Shutdown(reason string) error {
 	s.log.Info("Shutdown started", "reason", reason)
+
 	s.shutdownReason = reason
 	s.shutdownInProgress = true
 
@@ -202,11 +211,10 @@ func (s *Server) Shutdown(reason string) {
 	s.shutdownFn()
 
 	// wait for child routines
-	s.childRoutines.Wait()
+	return s.childRoutines.Wait()
 }
 
-func (s *Server) Exit(reason error) int {
-	// default exit code is 1
+func (s *Server) ExitCode(reason error) int {
 	code := 1
 
 	if reason == context.Canceled && s.shutdownReason != "" {
@@ -215,6 +223,7 @@ func (s *Server) Exit(reason error) int {
 	}
 
 	s.log.Error("Server shutdown", "reason", reason)
+
 	return code
 }
 

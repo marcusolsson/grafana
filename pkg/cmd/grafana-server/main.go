@@ -101,7 +101,8 @@ func main() {
 
 	err := server.Run()
 
-	code := server.Exit(err)
+	code := server.ExitCode(err)
+
 	trace.Stop()
 	log.Close()
 
