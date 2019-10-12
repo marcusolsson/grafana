@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/grafana/grafana/pkg/models"
-	m "github.com/grafana/grafana/pkg/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,7 +14,7 @@ func TestSearchBuilder_TagFilter(t *testing.T) {
 		UserId: 1,
 	}
 
-	sb := NewSearchBuilder(signedInUser, 1000, 0, m.PERMISSION_VIEW)
+	sb := NewSearchBuilder(signedInUser, 1000, 0, models.PERMISSION_VIEW)
 
 	sql, params := sb.WithTags([]string{"tag1", "tag2"}).ToSql()
 
@@ -31,7 +30,7 @@ func TestSearchBuilder_Normal(t *testing.T) {
 		UserId: 1,
 	}
 
-	sb := NewSearchBuilder(signedInUser, 1000, 0, m.PERMISSION_VIEW)
+	sb := NewSearchBuilder(signedInUser, 1000, 0, models.PERMISSION_VIEW)
 
 	sql, params := sb.IsStarred().WithTitle("test").ToSql()
 
