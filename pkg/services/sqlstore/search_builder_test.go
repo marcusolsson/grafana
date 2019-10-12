@@ -4,8 +4,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-xorm/xorm"
 	"github.com/grafana/grafana/pkg/models"
+	"github.com/grafana/grafana/pkg/services/sqlstore/migrator"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSearchBuilder_TagFilter(t *testing.T) {
@@ -13,6 +16,11 @@ func TestSearchBuilder_TagFilter(t *testing.T) {
 		OrgId:  1,
 		UserId: 1,
 	}
+
+	engine, err := xorm.NewEngine("postgres", "dbname=foo")
+	require.Nil(t, err)
+
+	dialect := migrator.NewDialect(engine)
 
 	sb := NewSearchBuilder(signedInUser, 1000, 0, models.PERMISSION_VIEW, dialect)
 
@@ -29,6 +37,11 @@ func TestSearchBuilder_Normal(t *testing.T) {
 		OrgId:  1,
 		UserId: 1,
 	}
+
+	engine, err := xorm.NewEngine("postgres", "dbname=foo")
+	require.Nil(t, err)
+
+	dialect := migrator.NewDialect(engine)
 
 	sb := NewSearchBuilder(signedInUser, 1000, 0, models.PERMISSION_VIEW, dialect)
 
